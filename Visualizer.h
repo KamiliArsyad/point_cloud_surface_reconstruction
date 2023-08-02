@@ -69,4 +69,4 @@ public:
   void setPointCloud(std::vector<Point_3> points);
   void updatePose(Point_3 pose);
   void triggerWrap();
-}
+};
