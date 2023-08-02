@@ -4,6 +4,8 @@
 #include <CGAL/IO/read_points.h>
 #include <CGAL/Real_timer.h>
 
+#include <pangolin/pangolin.h>
+
 #include <iostream>
 #include <string>
 #include <thread>
@@ -20,6 +22,7 @@ class Visualizer
 {
 private:
   std::thread pointCloudConsumerThread;
+  // The main visualizer thread. Pangolin is used.
   std::thread poseConsumerThread;
 
   // House keeping for threads ----------------
@@ -48,11 +51,16 @@ private:
   Mesh previewMesh;
   Mesh finalMesh;
 
+  Point_3 pose;
+
   // Functions -------------------------------
   void pointCloudConsumer();
   void poseConsumer();
   void processPointCloud();
   void initDiagonalLength(std::vector<Point_3> points);
+  void drawPreviewMesh(Mesh mesh);
+  void drawMesh(Mesh mesh);
+
 public:
   Visualizer(double relative_alpha, double relative_offset);
   ~Visualizer();
