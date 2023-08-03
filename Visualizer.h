@@ -6,6 +6,7 @@
 
 #include <pangolin/pangolin.h>
 
+#include <functional>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -26,17 +27,20 @@ private:
   std::thread poseConsumerThread;
 
   // House keeping for threads ----------------
+  // Note that I refrained from using more mutexes and condition variables than this for ease of development.
+
+  // Mutex for all point cloud and mesh related data structures (including the draw function).
   std::mutex pointCloudMutex;
-  std::mutex poseMutex;
   std::condition_variable pointCloudSignal;
+  // Mutex for all pose related data structures.
+  std::mutex poseMutex;
   std::condition_variable poseSignal;
 
   bool pointCloudReady = false;
   bool poseReady = false;
-  bool pointCloudConsumerRunning = false;
-  bool poseConsumerRunning = false;
-  bool pointCloudConsumerFinished = false;
-  bool poseConsumerFinished = false;
+
+  // Function pointer to hold the draw function
+  std::function<void()> drawFunction;
   // ------------------------------------------
 
   double diag_length;
@@ -66,6 +70,8 @@ private:
 public:
   Visualizer(double relative_alpha, double relative_offset);
   ~Visualizer();
+
+  Mesh getFinalMesh();
 
   void addPointCloud(std::vector<Point_3> points);
   void setPointCloud(std::vector<Point_3> points);

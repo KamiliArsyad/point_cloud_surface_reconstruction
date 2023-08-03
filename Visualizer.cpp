@@ -74,20 +74,19 @@ void Visualizer::pointCloudConsumer()
   pointCloudReady = false;
   pointCloudSignal.notify_one();
 
-  lock.unlock();
-
   initDiagonalLength(points);
   this->alpha = diag_length / relative_alpha; 
   this->offset = diag_length / relative_offset;
 
   CGAL::alpha_wrap_3(points, alpha, offset, previewMesh);
 
-  // Draw the preview of the mesh in the main thread while locking the mutex
-  // std::unique_lock<std::mutex> lock2(poseMutex);
-  // poseSignal.wait(lock2, [&] { return poseReady; });
-
-  // poseReady = false;
-  // lock2.unlock();
+  /**
+   * Note: This is just binding the draw function to the drawPreviewMesh function. The lambda function is used
+   * instead of std::bind such that the drawPreviewMesh function can be called with the current previewMesh
+   * instead of the previewMesh captured by the bind function.
+  */
+  // this->drawFunction = std::bind(&Visualizer::drawPreviewMesh, this, previewMesh);
+  this->drawFunction = [this]() { this->drawPreviewMesh(this->previewMesh); };
 }
 
 /// @brief Semi-transparent preview of the wrapped point cloud.
@@ -180,28 +179,36 @@ void Visualizer::poseConsumer()
   pangolin::View& d_cam = pangolin::CreateDisplay()
                               .SetBounds(0.0, 1.0, 0.0, 1.0, -1024.0f / 768.0f)
                               .SetHandler(new pangolin::Handler3D(s_cam));
+
+  // ------------------------------------------------
+  // Reusable variables
+  // ------------------------------------------------
+  Point_3 pose;
   
   // ------------------------------------------------
   // Main loop
   // ------------------------------------------------
   while (!pangolin::ShouldQuit())
   {
+    // Acquire lock to the pose
+    std::unique_lock<std::mutex> lock(poseMutex);
+    poseSignal.wait(lock, [&] { return poseReady; });
+    pose = this->pose;
+    poseReady = false;  
+    lock.unlock();
+
     // Clear screen and activate view to render into
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     d_cam.Activate(s_cam);
-    drawPreviewMesh(previewMesh);
+
+    std::unique_lock<std::mutex> meshLock(pointCloudMutex);
+    this->drawFunction();
+    meshLock.unlock();
+
+    // drawPreviewMesh(previewMesh);
 
     // Swap frames and Process Events
     pangolin::FinishFrame();
-
-    // // Acquire lock to the pose
-    // std::unique_lock<std::mutex> lock(poseMutex);
-    // poseSignal.wait(lock, [&] { return poseReady; });
-
-    // // Update the pose
-    // Point_3 pose = this->pose;
-
-    // poseReady = false;  
   }
 }
 
@@ -223,4 +230,13 @@ void Visualizer::initDiagonalLength(std::vector<Point_3> points)
 void Visualizer::processPointCloud()
 {
   pointsProcessed = pointsToProcess;
+}
+
+/// @brief Get the final mesh
+/// @return Mesh
+Mesh Visualizer::getFinalMesh()
+{
+  std::unique_lock<std::mutex> lock(pointCloudMutex);
+
+  return finalMesh;
 }
