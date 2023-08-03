@@ -14,6 +14,19 @@ using Point_3 = K::Point_3;
 using Point_container = std::vector<Point_3>;
 using Mesh = CGAL::Surface_mesh<Point_3>;
 
+void saveMesh(const Mesh& mesh, const std::string& filename, double relative_alpha,
+              double relative_offset)
+{
+  std::string input_name = std::string(filename);
+  input_name = input_name.substr(input_name.find_last_of("/") + 1, input_name.length() - 1);
+  input_name = input_name.substr(0, input_name.find_last_of("."));
+  std::string output_name = input_name + "_" + std::to_string(static_cast<int>(relative_alpha))
+                            + "_" + std::to_string(static_cast<int>(relative_offset)) + ".off";
+  std::cout << "Writing to " << output_name << std::endl;
+
+  CGAL::IO::write_polygon_mesh(output_name, mesh, CGAL::parameters::stream_precision(17));
+}
+
 int main(int argc, char** argv)
 {
   std::cout.precision(17);
@@ -31,37 +44,25 @@ int main(int argc, char** argv)
 
   std::cout << points.size() << " points" << std::endl;
 
-  // Compute the alpha and offset values
   const double relative_alpha = (argc > 2) ? std::stod(argv[2]) : 10.;
   const double relative_offset = (argc > 3) ? std::stod(argv[3]) : 300.;
-  CGAL::Bbox_3 bbox = CGAL::bbox_3(std::cbegin(points), std::cend(points));
-  const double diag_length = std::sqrt(CGAL::square(bbox.xmax() - bbox.xmin()) +
-                                       CGAL::square(bbox.ymax() - bbox.ymin()) +
-                                       CGAL::square(bbox.zmax() - bbox.zmin()));
-  const double alpha = diag_length / relative_alpha;
-  const double offset = diag_length / relative_offset;
-  std::cout << "absolute alpha = " << alpha << " absolute offset = " << offset << std::endl;
 
   Visualizer visualizer(relative_alpha, relative_offset);
   visualizer.setPointCloud(points);
   visualizer.triggerWrap();
 
-  // Construct the wrap
-  CGAL::Real_timer t;
-  t.start();
-  Mesh wrap;
-  CGAL::alpha_wrap_3(points, alpha, offset, wrap);
-  t.stop();
-  std::cout << "Result: " << num_vertices(wrap) << " vertices, " << num_faces(wrap) << " faces" << std::endl;
-  std::cout << "Took " << t.time() << " s." << std::endl;
+  // Update the pose every 0.1 seconds for 20 seconds
+  for (int i = 0; i < 200; i++)
+  {
+    visualizer.updatePose(Point_3(i * 0.1, 0.0, 0.0));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
 
-  // Save the result
-  std::string input_name = std::string(filename);
-  input_name = input_name.substr(input_name.find_last_of("/") + 1, input_name.length() - 1);
-  input_name = input_name.substr(0, input_name.find_last_of("."));
-  std::string output_name = input_name + "_" + std::to_string(static_cast<int>(relative_alpha))
-                            + "_" + std::to_string(static_cast<int>(relative_offset)) + ".off";
-  std::cout << "Writing to " << output_name << std::endl;
-  CGAL::IO::write_polygon_mesh(output_name, wrap, CGAL::parameters::stream_precision(17));
+  // Construct the wrap
+  Mesh wrap = visualizer.getFinalMesh();
+
+  // Save the wrap
+  saveMesh(wrap, filename, relative_alpha, relative_offset);
+
   return EXIT_SUCCESS;
 }
