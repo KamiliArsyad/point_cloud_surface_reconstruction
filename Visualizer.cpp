@@ -4,6 +4,8 @@ Visualizer::Visualizer(double relative_alpha, double relative_offset)
 {
   this->relative_alpha = relative_alpha;
   this->relative_offset = relative_offset;
+
+  poseConsumerThread = std::thread(&Visualizer::poseConsumer, this);
 }
 
 Visualizer::~Visualizer()
@@ -34,7 +36,8 @@ void Visualizer::addPointCloud(std::vector<Point_3> points)
 /// @param points
 void Visualizer::setPointCloud(std::vector<Point_3> points)
 {
-  std::unique_lock<std::mutex> lock(pointCloudMutex); pointsToProcess = points;
+  std::unique_lock<std::mutex> lock(pointCloudMutex); 
+  pointsToProcess = points;
 
   pointCloudReady = true;
   pointCloudSignal.notify_one();
@@ -74,19 +77,79 @@ void Visualizer::pointCloudConsumer()
   lock.unlock();
 
   initDiagonalLength(points);
-  this->alpha = relative_alpha * diag_length;
-  this->offset = relative_offset * diag_length;
+  this->alpha = diag_length / relative_alpha; 
+  this->offset = diag_length / relative_offset;
 
   CGAL::alpha_wrap_3(points, alpha, offset, previewMesh);
 
-  drawPreviewMesh(previewMesh);
+  // Draw the preview of the mesh in the main thread while locking the mutex
+  // std::unique_lock<std::mutex> lock2(poseMutex);
+  // poseSignal.wait(lock2, [&] { return poseReady; });
+
+  // poseReady = false;
+  // lock2.unlock();
 }
 
 /// @brief Semi-transparent preview of the wrapped point cloud.
 /// @param mesh
 void Visualizer::drawPreviewMesh(Mesh mesh)
 {
-  return;
+  // Draw the points of the mesh
+  glPointSize(2.0);
+  glBegin(GL_POINTS);
+  glColor3f(1.0, 0.0, 0.0);
+
+  for (auto v : mesh.vertices())
+  {
+    Point_3 p = mesh.point(v);
+    glVertex3f(p.x(), p.y(), p.z());
+  }
+
+  glEnd();
+
+  // // Draw the faces of the mesh
+  // glBegin(GL_TRIANGLES);
+  // glColor3f(0.0, 1.0, 0.0);
+
+  // for (auto f : mesh.faces())
+  // {
+  //   // Random color
+  //   glColor3f((float)rand() / RAND_MAX, (float)rand() / RAND_MAX, (float)rand() / RAND_MAX);
+
+  //   auto h = mesh.halfedge(f);
+  //   auto p1 = mesh.point(mesh.source(h));
+  //   auto p2 = mesh.point(mesh.target(h));
+  //   auto p3 = mesh.point(mesh.target(mesh.next(h)));
+
+  //   glVertex3f(p1.x(), p1.y(), p1.z());
+  //   glVertex3f(p2.x(), p2.y(), p2.z());
+  //   glVertex3f(p3.x(), p3.y(), p3.z());
+  // }
+
+  // glEnd();
+
+  // Draw the edges of the mesh
+  glBegin(GL_LINES);
+  glColor3f(0.0, 0.0, 1.0);
+
+  for (auto e : mesh.edges())
+  {
+    CGAL::Surface_mesh<Point_3>::Halfedge_index h = mesh.halfedge(e, 0);
+    Point_3 p1 = mesh.point(mesh.source(h));
+    Point_3 p2 = mesh.point(mesh.target(h));
+
+    glVertex3f(p1.x(), p1.y(), p1.z());
+    glVertex3f(p2.x(), p2.y(), p2.z());
+
+    h = mesh.halfedge(e, 1);
+    p1 = mesh.point(mesh.source(h));
+    p2 = mesh.point(mesh.target(h));
+
+    glVertex3f(p1.x(), p1.y(), p1.z());
+    glVertex3f(p2.x(), p2.y(), p2.z());
+  }
+
+  glEnd();
 }
 
 /// @brief The main pose consumer thread.
@@ -126,12 +189,19 @@ void Visualizer::poseConsumer()
     // Clear screen and activate view to render into
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     d_cam.Activate(s_cam);
-
-    // Render OpenGL Cube (TEST)
-    pangolin::glDrawColouredCube();
+    drawPreviewMesh(previewMesh);
 
     // Swap frames and Process Events
     pangolin::FinishFrame();
+
+    // // Acquire lock to the pose
+    // std::unique_lock<std::mutex> lock(poseMutex);
+    // poseSignal.wait(lock, [&] { return poseReady; });
+
+    // // Update the pose
+    // Point_3 pose = this->pose;
+
+    // poseReady = false;  
   }
 }
 

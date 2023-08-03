@@ -15,6 +15,6 @@ include_directories(
   ${EIGEN3_INCLUDE_DIR}
   )
 
-create_single_source_cgal_program(main.cpp)
+# create_single_source_cgal_program(main.cpp)
 add_executable(${PROJECT_NAME} main.cpp Visualizer.cpp)
 target_link_libraries(${PROJECT_NAME} ${CGAL_LIBRARIES} ${CGAL_3RD_PARTY_LIBRARIES} ${EIGEN3_LIBS} ${Pangolin_LIBRARIES})

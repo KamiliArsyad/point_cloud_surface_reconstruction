@@ -5,6 +5,7 @@
 #include <CGAL/Real_timer.h>
 #include <iostream>
 #include <string>
+#include "./Visualizer.h"
 
 namespace AW3 = CGAL::Alpha_wraps_3;
 
@@ -40,6 +41,10 @@ int main(int argc, char** argv)
   const double alpha = diag_length / relative_alpha;
   const double offset = diag_length / relative_offset;
   std::cout << "absolute alpha = " << alpha << " absolute offset = " << offset << std::endl;
+
+  Visualizer visualizer(relative_alpha, relative_offset);
+  visualizer.setPointCloud(points);
+  visualizer.triggerWrap();
 
   // Construct the wrap
   CGAL::Real_timer t;

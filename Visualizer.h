@@ -58,8 +58,10 @@ private:
   void poseConsumer();
   void processPointCloud();
   void initDiagonalLength(std::vector<Point_3> points);
+
   void drawPreviewMesh(Mesh mesh);
   void drawMesh(Mesh mesh);
+  void drawPose(Point_3 pose);
 
 public:
   Visualizer(double relative_alpha, double relative_offset);
