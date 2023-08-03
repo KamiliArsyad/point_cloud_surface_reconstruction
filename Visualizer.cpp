@@ -151,6 +151,34 @@ void Visualizer::drawPreviewMesh(Mesh mesh)
   glEnd();
 }
 
+/// @brief Draw the pose of the device
+/// @param pose
+void Visualizer::drawPose(Point_3 pose)
+{
+  glPointSize(5.0);
+  glBegin(GL_POINTS);
+  glColor3f(1.0, 1.0, 1.0);
+
+  glVertex3f(pose.x(), pose.y(), pose.z());
+
+  glEnd();
+
+  glLineWidth(2.0);
+  glBegin(GL_LINES);
+  glColor3f(1.0, 1.0, 1.0);
+
+  glVertex3f(pose.x(), pose.y(), pose.z());
+  glVertex3f(pose.x() + 1.0, pose.y(), pose.z());
+
+  glVertex3f(pose.x(), pose.y(), pose.z());
+  glVertex3f(pose.x(), pose.y() + 1.0, pose.z());
+
+  glVertex3f(pose.x(), pose.y(), pose.z());
+  glVertex3f(pose.x(), pose.y(), pose.z() + 1.0);
+
+  glEnd();
+}
+
 /// @brief The main pose consumer thread.
 /// @details This thread will wait for the pose to be ready, update the pose, and then display the wrapped point cloud.
 void Visualizer::poseConsumer()
@@ -205,7 +233,7 @@ void Visualizer::poseConsumer()
     this->drawFunction();
     meshLock.unlock();
 
-    // drawPreviewMesh(previewMesh);
+    this->drawPose(pose);
 
     // Swap frames and Process Events
     pangolin::FinishFrame();
