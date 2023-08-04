@@ -22,7 +22,7 @@ Visualizer::~Visualizer()
 }
 
 /// @brief Add a set of points to the existing point cloud to be processed
-/// @param points 
+/// @param points
 void Visualizer::addPointCloud(std::vector<Point_3> points)
 {
   std::unique_lock<std::mutex> lock(pointCloudMutex);
@@ -36,8 +36,9 @@ void Visualizer::addPointCloud(std::vector<Point_3> points)
 /// @param points
 void Visualizer::setPointCloud(std::vector<Point_3> points)
 {
-  std::unique_lock<std::mutex> lock(pointCloudMutex); 
-  this->pointCloudSignal.wait(lock, [&] { return !pointCloudReady; });
+  std::unique_lock<std::mutex> lock(pointCloudMutex);
+  this->pointCloudSignal.wait(lock, [&]
+                              { return !pointCloudReady; });
 
   pointsToProcess = points;
 
@@ -68,7 +69,8 @@ void Visualizer::triggerWrap()
 void Visualizer::pointCloudConsumer()
 {
   std::unique_lock<std::mutex> lock(pointCloudMutex);
-  pointCloudSignal.wait(lock, [&] { return pointCloudReady; });
+  pointCloudSignal.wait(lock, [&]
+                        { return pointCloudReady; });
 
   processPointCloud();
   std::vector<Point_3> points = pointsProcessed;
@@ -77,7 +79,7 @@ void Visualizer::pointCloudConsumer()
   pointCloudSignal.notify_one();
 
   initDiagonalLength(points);
-  this->alpha = diag_length / relative_alpha; 
+  this->alpha = diag_length / relative_alpha;
   this->offset = diag_length / relative_offset;
 
   CGAL::alpha_wrap_3(points, alpha, offset, previewMesh);
@@ -86,9 +88,10 @@ void Visualizer::pointCloudConsumer()
    * Note: This is just binding the draw function to the drawPreviewMesh function. The lambda function is used
    * instead of std::bind such that the drawPreviewMesh function can be called with the current previewMesh
    * instead of the previewMesh captured by the bind function.
-  */
+   */
   // this->drawFunction = std::bind(&Visualizer::drawPreviewMesh, this, previewMesh);
-  this->drawFunction = [this]() { this->drawPreviewMesh(this->previewMesh); };
+  this->drawFunction = [this]()
+  { this->drawPreviewMesh(this->previewMesh); };
 
   // Terminate the thread
   pointCloudConsumerThread.detach();
@@ -224,7 +227,7 @@ void Visualizer::poseConsumer()
 {
   // ------------------------------------------------
   // Pangolin stuff
-  // ------------------------------------------------ 
+  // ------------------------------------------------
   pangolin::CreateWindowAndBind("Main", 1024, 768);
 
   // 3D Mouse handler requires depth testing to be enabled
@@ -234,15 +237,33 @@ void Visualizer::poseConsumer()
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-  // Menu stuff for later
-  pangolin::CreatePanel("menu").SetBounds(0.0,1.0,0.0,pangolin::Attach::Pix(175));
-  // Toggle points
+  // ------------------------------------------------
+  // Menu panel
+  // ------------------------------------------------
+  // Functions
+
+  std::function<void()> triggerWrapFunction = [this]()
+  {
+    std::unique_lock<std::mutex> lock(pointCloudMutex);
+    this->pointCloudReady = true;
+    this->triggerWrap();
+  };
+
+  std::function<void()> acceptWrapFunction = [this]()
+  {
+    std::unique_lock<std::mutex> lock(pointCloudMutex);
+    this->finalMesh = this->previewMesh;
+  };
+
+  // Menu
+  pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(175));
+
   pangolin::Var<bool> menuTogglePoints("menu.Toggle Points", false, true);
   pangolin::Var<bool> menuToggleFinalMesh("menu.Toggle Final Mesh", false, true);
-  pangolin::Var<double> menuAlpha("menu.Alpha", 5.0, 0.5, 100.0, true);
-  pangolin::Var<double> menuOffset("menu.Offset", 50.0, 0.5, 1000.0, true);
-  pangolin::Var<bool> menuTriggerWrap("menu.Trigger Wrap", false, false);
-  pangolin::Var<bool> menuAcceptWrap("menu.Accept Wrap", false, false);
+  pangolin::Var<double> menuAlpha("menu.Alpha", this->relative_alpha, 0.5, 100.0, true);
+  pangolin::Var<double> menuOffset("menu.Offset", this->relative_offset, 0.5, 1000.0, true);
+  pangolin::Var<std::function<void()>> menuTriggerWrap("menu.Trigger Wrap", triggerWrapFunction, false);
+  pangolin::Var<std::function<void()>> menuAcceptWrap("menu.Accept Wrap", acceptWrapFunction, false);
   // ...
 
   // Define Camera Render Object (for view / scene browsing)
@@ -251,7 +272,7 @@ void Visualizer::poseConsumer()
       pangolin::ModelViewLookAt(-0, 0, -1, 0, 0, 1, pangolin::AxisNegY));
 
   // Add named OpenGL viewport to window and provide 3D Handler
-  pangolin::View& d_cam = pangolin::CreateDisplay()
+  pangolin::View &d_cam = pangolin::CreateDisplay()
                               .SetBounds(0.0, 1.0, pangolin::Attach::Pix(175), 1.0, -1024.0f / 768.0f)
                               .SetHandler(new pangolin::Handler3D(s_cam));
 
@@ -259,7 +280,7 @@ void Visualizer::poseConsumer()
   // Reusable variables
   // ------------------------------------------------
   Point_3 pose;
-  
+
   // ------------------------------------------------
   // Main loop
   // ------------------------------------------------
@@ -267,9 +288,10 @@ void Visualizer::poseConsumer()
   {
     // Acquire lock to the pose
     std::unique_lock<std::mutex> lock(poseMutex);
-    poseSignal.wait(lock, [&] { return poseReady; });
+    poseSignal.wait(lock, [&]
+                    { return poseReady; });
     pose = this->pose;
-    poseReady = false;  
+    poseReady = false;
     lock.unlock();
 
     // Clear screen and activate view to render into
@@ -279,11 +301,8 @@ void Visualizer::poseConsumer()
     std::unique_lock<std::mutex> meshLock(pointCloudMutex);
     this->drawFunction();
 
-    if (menuAcceptWrap)
-    {
-      this->finalMesh = this->previewMesh;
-      menuAcceptWrap = false;
-    }
+    this->relative_alpha = menuAlpha;
+    this->relative_offset = menuOffset;
 
     meshLock.unlock();
 
@@ -292,19 +311,9 @@ void Visualizer::poseConsumer()
       this->drawPointCloud(pointsProcessed);
     }
 
-
     if (menuToggleFinalMesh)
     {
       this->drawMesh(finalMesh);
-    }
-
-    if (menuTriggerWrap)
-    {
-      this->relative_alpha = menuAlpha;
-      this->relative_offset = menuOffset;
-      this->pointCloudReady = true;
-      this->triggerWrap();
-      menuTriggerWrap = false;
     }
 
     this->drawPose(pose);
@@ -312,6 +321,9 @@ void Visualizer::poseConsumer()
     // Swap frames and Process Events
     pangolin::FinishFrame();
   }
+
+  // Terminate the thread
+  poseConsumerThread.detach();
 }
 
 // ------------------------------------------------

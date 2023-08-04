@@ -9,3 +9,4 @@ This project is still under development and this readme will be updated as the p
 ## Updates
 * 01/08/2023 - Initial commit - running `./main <path_to_point_cloud> <alpha> <offset>` will output the reconstructed object in a `.off` file.
 * 03/08/2023 - Successfully drawn the mesh using pangolin and set up the thread structure. Design improvement is needed.
+* 04/08/2023 - Added menu, surface drawing, and other improvements.
