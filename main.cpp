@@ -51,11 +51,17 @@ int main(int argc, char** argv)
   visualizer.setPointCloud(points);
   visualizer.triggerWrap();
 
-  // Update the pose every 0.1 seconds for 20 seconds
-  for (int i = 0; i < 200; i++)
+  // // Update the pose every 0.1 seconds for 20 seconds
+  // for (int i = 0; i < 200; i++)
+  // {
+  //   visualizer.updatePose(Point_3(i * 0.1, 0.0, 0.0));
+  //   std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  // }
+
+  while (true)
   {
-    visualizer.updatePose(Point_3(i * 0.1, 0.0, 0.0));
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    visualizer.updatePose(Point_3(0.0, 0.0, 0.0));
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
 
   // Construct the wrap

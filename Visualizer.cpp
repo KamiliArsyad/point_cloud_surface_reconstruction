@@ -37,6 +37,8 @@ void Visualizer::addPointCloud(std::vector<Point_3> points)
 void Visualizer::setPointCloud(std::vector<Point_3> points)
 {
   std::unique_lock<std::mutex> lock(pointCloudMutex); 
+  this->pointCloudSignal.wait(lock, [&] { return !pointCloudReady; });
+
   pointsToProcess = points;
 
   pointCloudReady = true;
@@ -55,7 +57,7 @@ void Visualizer::updatePose(Point_3 pose)
 }
 
 /// @brief Trigger wrapping of the point cloud.
-/// @details This process is asynchronous and will run in a separate thread.
+/// @details This process is asynchronous and will run in a separate thread created by this function.
 void Visualizer::triggerWrap()
 {
   pointCloudConsumerThread = std::thread(&Visualizer::pointCloudConsumer, this);
@@ -87,6 +89,25 @@ void Visualizer::pointCloudConsumer()
   */
   // this->drawFunction = std::bind(&Visualizer::drawPreviewMesh, this, previewMesh);
   this->drawFunction = [this]() { this->drawPreviewMesh(this->previewMesh); };
+
+  // Terminate the thread
+  pointCloudConsumerThread.detach();
+}
+
+/// @brief Draw the point cloud
+/// @param points
+void Visualizer::drawPointCloud(std::vector<Point_3> points)
+{
+  glPointSize(2.0);
+  glBegin(GL_POINTS);
+  glColor3f(1.0, 0.0, 0.0);
+
+  for (auto p : points)
+  {
+    glVertex3f(p.x(), p.y(), p.z());
+  }
+
+  glEnd();
 }
 
 /// @brief Semi-transparent preview of the wrapped point cloud.
@@ -105,27 +126,6 @@ void Visualizer::drawPreviewMesh(Mesh mesh)
   }
 
   glEnd();
-
-  // // Draw the faces of the mesh
-  // glBegin(GL_TRIANGLES);
-  // glColor3f(0.0, 1.0, 0.0);
-
-  // for (auto f : mesh.faces())
-  // {
-  //   // Random color
-  //   glColor3f((float)rand() / RAND_MAX, (float)rand() / RAND_MAX, (float)rand() / RAND_MAX);
-
-  //   auto h = mesh.halfedge(f);
-  //   auto p1 = mesh.point(mesh.source(h));
-  //   auto p2 = mesh.point(mesh.target(h));
-  //   auto p3 = mesh.point(mesh.target(mesh.next(h)));
-
-  //   glVertex3f(p1.x(), p1.y(), p1.z());
-  //   glVertex3f(p2.x(), p2.y(), p2.z());
-  //   glVertex3f(p3.x(), p3.y(), p3.z());
-  // }
-
-  // glEnd();
 
   // Draw the edges of the mesh
   glBegin(GL_LINES);
@@ -146,6 +146,45 @@ void Visualizer::drawPreviewMesh(Mesh mesh)
 
     glVertex3f(p1.x(), p1.y(), p1.z());
     glVertex3f(p2.x(), p2.y(), p2.z());
+  }
+
+  glEnd();
+}
+
+/// @brief Draw the final mesh
+/// @param mesh
+void Visualizer::drawMesh(Mesh mesh)
+{
+  // Draw the points of the mesh
+  glPointSize(2.0);
+  glBegin(GL_POINTS);
+  glColor3f(1.0, 0.0, 0.0);
+
+  for (auto v : mesh.vertices())
+  {
+    Point_3 p = mesh.point(v);
+    glVertex3f(p.x(), p.y(), p.z());
+  }
+
+  glEnd();
+
+  // Draw the faces of the mesh
+  glBegin(GL_TRIANGLES);
+  glColor3f(0.0, 1.0, 0.0);
+
+  for (auto f : mesh.faces())
+  {
+    // Random color
+    glColor3f((float)rand() / RAND_MAX, 0, (float)rand() / RAND_MAX);
+
+    auto h = mesh.halfedge(f);
+    auto p1 = mesh.point(mesh.source(h));
+    auto p2 = mesh.point(mesh.target(h));
+    auto p3 = mesh.point(mesh.target(mesh.next(h)));
+
+    glVertex3f(p1.x(), p1.y(), p1.z());
+    glVertex3f(p2.x(), p2.y(), p2.z());
+    glVertex3f(p3.x(), p3.y(), p3.z());
   }
 
   glEnd();
@@ -196,6 +235,14 @@ void Visualizer::poseConsumer()
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   // Menu stuff for later
+  pangolin::CreatePanel("menu").SetBounds(0.0,1.0,0.0,pangolin::Attach::Pix(175));
+  // Toggle points
+  pangolin::Var<bool> menuTogglePoints("menu.Toggle Points", false, true);
+  pangolin::Var<bool> menuToggleFinalMesh("menu.Toggle Final Mesh", false, true);
+  pangolin::Var<double> menuAlpha("menu.Alpha", 5.0, 0.5, 100.0, true);
+  pangolin::Var<double> menuOffset("menu.Offset", 50.0, 0.5, 1000.0, true);
+  pangolin::Var<bool> menuTriggerWrap("menu.Trigger Wrap", false, false);
+  pangolin::Var<bool> menuAcceptWrap("menu.Accept Wrap", false, false);
   // ...
 
   // Define Camera Render Object (for view / scene browsing)
@@ -205,7 +252,7 @@ void Visualizer::poseConsumer()
 
   // Add named OpenGL viewport to window and provide 3D Handler
   pangolin::View& d_cam = pangolin::CreateDisplay()
-                              .SetBounds(0.0, 1.0, 0.0, 1.0, -1024.0f / 768.0f)
+                              .SetBounds(0.0, 1.0, pangolin::Attach::Pix(175), 1.0, -1024.0f / 768.0f)
                               .SetHandler(new pangolin::Handler3D(s_cam));
 
   // ------------------------------------------------
@@ -231,7 +278,34 @@ void Visualizer::poseConsumer()
 
     std::unique_lock<std::mutex> meshLock(pointCloudMutex);
     this->drawFunction();
+
+    if (menuAcceptWrap)
+    {
+      this->finalMesh = this->previewMesh;
+      menuAcceptWrap = false;
+    }
+
     meshLock.unlock();
+
+    if (menuTogglePoints)
+    {
+      this->drawPointCloud(pointsProcessed);
+    }
+
+
+    if (menuToggleFinalMesh)
+    {
+      this->drawMesh(finalMesh);
+    }
+
+    if (menuTriggerWrap)
+    {
+      this->relative_alpha = menuAlpha;
+      this->relative_offset = menuOffset;
+      this->pointCloudReady = true;
+      this->triggerWrap();
+      menuTriggerWrap = false;
+    }
 
     this->drawPose(pose);
 

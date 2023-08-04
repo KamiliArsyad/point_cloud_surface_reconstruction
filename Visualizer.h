@@ -19,6 +19,8 @@ using K = CGAL::Exact_predicates_inexact_constructions_kernel;
 using Point_3 = K::Point_3;
 using Mesh = CGAL::Surface_mesh<Point_3>;
 
+/// @brief Visualizer class that wraps the point cloud and displays the wrap.
+/// @details The pose and point cloud update/set functions are thread safe.
 class Visualizer
 {
 private:
@@ -63,6 +65,7 @@ private:
   void processPointCloud();
   void initDiagonalLength(std::vector<Point_3> points);
 
+  void drawPointCloud(std::vector<Point_3> points);
   void drawPreviewMesh(Mesh mesh);
   void drawMesh(Mesh mesh);
   void drawPose(Point_3 pose);
