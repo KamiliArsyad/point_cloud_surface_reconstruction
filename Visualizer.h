@@ -3,6 +3,8 @@
 #include <CGAL/alpha_wrap_3.h>
 #include <CGAL/IO/read_points.h>
 #include <CGAL/Real_timer.h>
+#include <CGAL/compute_average_spacing.h>
+#include <CGAL/remove_outliers.h>
 
 #include <pangolin/pangolin.h>
 
@@ -50,6 +52,7 @@ private:
   double offset;
   double relative_alpha;
   double relative_offset;
+  double outlier_percentage = 0.1;
 
   std::vector<Point_3> pointsToProcess;
   std::vector<Point_3> pointsProcessed;

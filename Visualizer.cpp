@@ -260,6 +260,7 @@ void Visualizer::poseConsumer()
 
   pangolin::Var<bool> menuTogglePoints("menu.Toggle Points", false, true);
   pangolin::Var<bool> menuToggleFinalMesh("menu.Toggle Final Mesh", false, true);
+  pangolin::Var<double> menuOutlierPercentage("menu.Outlier Percentage", outlier_percentage, 0.0, 1.0); 
   pangolin::Var<double> menuAlpha("menu.Alpha", this->relative_alpha, 0.5, 100.0, true);
   pangolin::Var<double> menuOffset("menu.Offset", this->relative_offset, 0.5, 1000.0, true);
   pangolin::Var<std::function<void()>> menuTriggerWrap("menu.Trigger Wrap", triggerWrapFunction, false);
@@ -303,6 +304,7 @@ void Visualizer::poseConsumer()
 
     this->relative_alpha = menuAlpha;
     this->relative_offset = menuOffset;
+    this->outlier_percentage = menuOutlierPercentage;
 
     meshLock.unlock();
 
@@ -343,7 +345,13 @@ void Visualizer::initDiagonalLength(std::vector<Point_3> points)
 /// @brief Process the point cloud (e.g. remove outliers)
 void Visualizer::processPointCloud()
 {
-  pointsProcessed = pointsToProcess;
+  const int num_neighbors = 30;
+  const double avg_distance = CGAL::compute_average_spacing<CGAL::Sequential_tag>(pointsToProcess, num_neighbors);
+
+  std::vector<Point_3> points = pointsToProcess;
+  points.erase(CGAL::remove_outliers<CGAL::Parallel_if_available_tag>(points, num_neighbors, CGAL::parameters::threshold_percent(this->outlier_percentage)), points.end());
+
+  pointsProcessed = points;
 }
 
 /// @brief Get the final mesh
