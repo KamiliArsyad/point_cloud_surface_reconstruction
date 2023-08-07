@@ -256,7 +256,7 @@ void Visualizer::poseConsumer()
   };
 
   // Menu
-  pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(175));
+  pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(225));
 
   pangolin::Var<bool> menuTogglePoints("menu.Toggle Points", false, true);
   pangolin::Var<bool> menuToggleFinalMesh("menu.Toggle Final Mesh", false, true);
@@ -270,11 +270,11 @@ void Visualizer::poseConsumer()
   // Define Camera Render Object (for view / scene browsing)
   pangolin::OpenGlRenderState s_cam(
       pangolin::ProjectionMatrix(1024, 768, 420, 420, 512, 389, 0.1, 1000),
-      pangolin::ModelViewLookAt(-0, 0, -1, 0, 0, 1, pangolin::AxisNegY));
+      pangolin::ModelViewLookAt(-0, 0, -1, 0, 0, 1, pangolin::AxisY));
 
   // Add named OpenGL viewport to window and provide 3D Handler
   pangolin::View &d_cam = pangolin::CreateDisplay()
-                              .SetBounds(0.0, 1.0, pangolin::Attach::Pix(175), 1.0, -1024.0f / 768.0f)
+                              .SetBounds(0.0, 1.0, pangolin::Attach::Pix(225), 1.0, -1024.0f / 768.0f)
                               .SetHandler(new pangolin::Handler3D(s_cam));
 
   // ------------------------------------------------
@@ -297,6 +297,7 @@ void Visualizer::poseConsumer()
 
     // Clear screen and activate view to render into
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     d_cam.Activate(s_cam);
 
     std::unique_lock<std::mutex> meshLock(pointCloudMutex);
